@@ -1,48 +1,58 @@
-// 🔥 PROXY (resolve CORS + pega HTML real)
-const PROXY = "https://api.allorigins.win/raw?url=";
+// 🔍 Busca nome correto
+async function searchMonster(monsterName) {
+  const url = `https://tibia.fandom.com/api.php?action=query&list=search&srsearch=${encodeURIComponent(monsterName)}&format=json&origin=*`;
 
+  const res = await fetch(url);
+  const data = await res.json();
 
-// 🔍 Busca página HTML real
-async function fetchPageHTML(monsterName) {
-  const urlName = monsterName
-    .trim()
-    .replace(/\b\w/g, c => c.toUpperCase())
-    .replace(/ /g, "_");
+  if (!data.query.search.length) return null;
 
-  const url = `https://tibia.fandom.com/wiki/${urlName}`;
-
-  try {
-    const res = await fetch(PROXY + encodeURIComponent(url));
-    const html = await res.text();
-
-    return html;
-  } catch (err) {
-    console.log("Erro ao buscar HTML:", err);
-    return null;
-  }
+  return data.query.search[0].title;
 }
 
 
-// 🔥 EXTRAI FRAQUEZA DO HTML REAL
-function extractWeaknessFromHTML(html) {
-  const doc = new DOMParser().parseFromString(html, "text/html");
+// 🔥 Busca WIKITEXT (FORMA CORRETA)
+async function fetchWikiText(title) {
+  const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
 
-  const text = doc.body.innerText;
+  const res = await fetch(url);
+  const data = await res.json();
 
-  const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
+  if (!data.parse) return null;
+
+  return data.parse.wikitext["*"];
+}
+
+
+// 🔥 PARSER (FUNCIONA COM ESSE FORMATO)
+function extractWeakness(wikiText) {
+  const elements = ["physical", "death", "holy", "ice", "fire", "energy", "earth", "drown"];
   const values = {};
 
   elements.forEach(el => {
-    const regex = new RegExp(`${el}\\s*(\\d+)%`, "i");
-    const match = text.match(regex);
+    // pega padrões tipo fire=125 ou fire = 125
+    const regex = new RegExp(`${el}\\s*=\\s*(\\d+)`, "i");
+    const match = wikiText.match(regex);
 
     if (match) {
-      values[el] = parseInt(match[1]);
+      values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
     }
   });
 
-  if (!Object.keys(values).length) {
-    console.log("⚠️ Não encontrou resistências no HTML");
+  // 🔥 fallback: tenta pegar formato alternativo (ex: Fire 125%)
+  if (Object.keys(values).length === 0) {
+    elements.forEach(el => {
+      const regex = new RegExp(`${el}\\D+(\\d+)`, "i");
+      const match = wikiText.match(regex);
+
+      if (match) {
+        values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
+      }
+    });
+  }
+
+  if (Object.keys(values).length === 0) {
+    console.log("⚠️ Nenhum elemento encontrado");
     return null;
   }
 
@@ -56,15 +66,33 @@ function extractWeaknessFromHTML(html) {
 
 // 🔥 PIPELINE
 async function fetchWeakness(monsterName) {
-  const html = await fetchPageHTML(monsterName);
+  try {
+    const correctName = await searchMonster(monsterName);
 
-  if (!html) return null;
+    if (!correctName) {
+      console.log("❌ Não encontrado:", monsterName);
+      return null;
+    }
 
-  const result = extractWeaknessFromHTML(html);
+    console.log("🔍 Nome correto:", correctName);
 
-  console.log("📊", monsterName, result);
+    const wikiText = await fetchWikiText(correctName);
 
-  return result;
+    if (!wikiText) {
+      console.log("❌ Sem wikitext:", correctName);
+      return null;
+    }
+
+    const result = extractWeakness(wikiText);
+
+    console.log("📊 Fraqueza:", result);
+
+    return result;
+
+  } catch (err) {
+    console.log("🔥 Erro:", monsterName, err);
+    return null;
+  }
 }
 
 
@@ -128,7 +156,9 @@ async function analyze() {
   const keys = Object.keys(elementScore);
 
   if (!keys.length) {
-    resultEl.innerText = "❌ Nenhuma fraqueza encontrada.";
+    resultEl.innerText =
+      "❌ Nenhuma fraqueza encontrada.\n\n" +
+      "Abra o console (F12) para debug.";
     return;
   }
 
