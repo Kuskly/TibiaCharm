@@ -2,18 +2,64 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <title>Tibia Hunt Analyzer</title>
+  <title>Tibia Charm Analyzer</title>
+
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 20px;
+    }
+
+    textarea {
+      width: 100%;
+      height: 150px;
+      background: #020617;
+      color: #e2e8f0;
+      border: 1px solid #334155;
+      padding: 10px;
+    }
+
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      background: #22c55e;
+      border: none;
+      cursor: pointer;
+      font-weight: bold;
+    }
+
+    pre {
+      margin-top: 20px;
+      background: #020617;
+      padding: 15px;
+      border: 1px solid #334155;
+      white-space: pre-wrap;
+    }
+  </style>
 </head>
+
 <body>
 
-  <h1>🔥 Tibia Hunt Analyzer</h1>
+<h2>⚔️ Tibia Charm Analyzer</h2>
 
-  <textarea id="input" rows="10" cols="50" placeholder="Cole aqui os mobs..."></textarea>
-  <br><br>
-  <button onclick="analyze()">Analisar Hunt</button>
+<textarea id="input">
+Killed Monsters:
+  251x darklight striker
+  251x darklight matter
+  160x walking pillar
+  156x darklight source
+</textarea>
 
-  <pre id="result"></pre>
+<br>
 
-  <script src="script.js"></script>
+<button onclick="analyze()">Analisar</button>
+
+<pre id="result"></pre>
+
+<!-- 🔥 IMPORTANTE: cache bust -->
+<script src="script.js?v=3"></script>
+
 </body>
 </html>
