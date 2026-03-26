@@ -1,1 +1,53 @@
+import requests
+from bs4 import BeautifulSoup
 
+def get_biggest_weakness(url):
+    response = requests.get(url)
+    soup = BeautifulSoup(response.text, "html.parser")
+
+    # Procura a seção de dano elemental
+    text = soup.get_text()
+
+    elements = {
+        "Physical": None,
+        "Death": None,
+        "Holy": None,
+        "Ice": None,
+        "Fire": None,
+        "Energy": None,
+        "Earth": None,
+        "Drown": None
+    }
+
+    # Extrai valores simples (baseado no texto da página)
+    for element in elements.keys():
+        try:
+            idx = text.index(element)
+            snippet = text[idx:idx+50]
+
+            # pega número antes do %
+            import re
+            match = re.search(r"(\d+)%", snippet)
+            if match:
+                elements[element] = int(match.group(1))
+        except:
+            continue
+
+    # filtra elementos válidos
+    valid = {k: v for k, v in elements.items() if v is not None}
+
+    if not valid:
+        return "Não encontrado"
+
+    # maior fraqueza = maior %
+    weakness = max(valid, key=valid.get)
+
+    return weakness, valid[weakness], valid
+
+
+if __name__ == "__main__":
+    url = "https://tibia.fandom.com/wiki/Darklight_Striker"
+    weakness, value, all_data = get_biggest_weakness(url)
+
+    print("Maior fraqueza:", weakness, f"({value}%)")
+    print("Todos os elementos:", all_data)
