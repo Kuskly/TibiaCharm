@@ -1,4 +1,6 @@
-// 🔍 Parse do input
+console.log("SCRIPT CARREGADO");
+
+// 🔍 Parse input
 function parseInput(text) {
   const lines = text.split("\n");
   const mobs = [];
@@ -30,7 +32,7 @@ async function searchMonster(monsterName) {
 }
 
 
-// 🔥 Busca WIKITEXT
+// 🔥 Busca wikitext
 async function fetchWikiText(title) {
   const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
 
@@ -46,8 +48,8 @@ async function fetchWikiText(title) {
 // 🔥 Extrai dados
 function extractData(wikiText) {
   const elements = [
-    "physical", "earth", "fire", "death",
-    "energy", "holy", "ice", "drown"
+    "physical","earth","fire","death",
+    "energy","holy","ice","drown"
   ];
 
   const values = {};
@@ -78,10 +80,12 @@ async function fetchMonsterData(name) {
 }
 
 
-// 🚀 ANALYZE FINAL (COM OTIMIZAÇÃO)
+// 🚀 ANALYZE FINAL (SEM REPETIR ELEMENTO)
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
+
+  resultEl.innerText = "🔄 Analisando...";
 
   const mobs = parseInput(input);
 
@@ -92,7 +96,6 @@ async function analyze() {
 
   let combinations = [];
 
-  // 🔥 gerar combinações
   for (const mob of mobs) {
     const data = await fetchMonsterData(mob.name);
     if (!data) continue;
@@ -111,14 +114,13 @@ async function analyze() {
     });
   }
 
-  // 🔥 ordenar
+  // ordenar por impacto
   combinations.sort((a, b) => b.score - a.score);
 
   let usedMobs = new Set();
   let usedElements = new Set();
   let final = [];
 
-  // 🔥 seleção ótima
   for (const combo of combinations) {
     if (!usedMobs.has(combo.mob) && !usedElements.has(combo.element)) {
       final.push(combo);
@@ -127,7 +129,6 @@ async function analyze() {
     }
   }
 
-  // 🔥 saída
   let output = "🎯 Distribuição ótima de charms\n\n";
 
   final.forEach(f => {
