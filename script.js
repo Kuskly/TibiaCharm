@@ -26,21 +26,24 @@ async function fetchRawPage(title) {
 }
 
 
-// 🔥 NOVO PARSER UNIVERSAL (RESOLVE O PROBLEMA)
+// 🔥 PARSER CORRIGIDO (AGORA FUNCIONA)
 function extractWeakness(rawText) {
-  const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
+  const elements = ["physical", "death", "holy", "ice", "fire", "energy", "earth", "drown"];
   const values = {};
 
   elements.forEach(el => {
-    const regex = new RegExp(`${el}\\D+(\\d+)`, "i");
+    const regex = new RegExp(`${el}\\s*=\\s*(\\d+)`, "i");
     const match = rawText.match(regex);
 
     if (match) {
-      values[el] = parseInt(match[1]);
+      values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
     }
   });
 
-  if (Object.keys(values).length === 0) return null;
+  if (Object.keys(values).length === 0) {
+    console.log("⚠️ Nenhum elemento encontrado no raw");
+    return null;
+  }
 
   const weakness = Object.keys(values).reduce((a, b) =>
     values[a] > values[b] ? a : b
@@ -142,7 +145,9 @@ async function analyze() {
   const keys = Object.keys(elementScore);
 
   if (!keys.length) {
-    resultEl.innerText = "❌ Nenhuma fraqueza encontrada.";
+    resultEl.innerText =
+      "❌ Nenhuma fraqueza encontrada.\n\n" +
+      "Abra o console (F12) para debug.";
     return;
   }
 
