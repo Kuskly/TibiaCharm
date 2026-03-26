@@ -11,15 +11,14 @@ async function searchMonster(monsterName) {
 }
 
 
-// 🔥 Busca conteúdo RAW da página
+// 🔥 Busca conteúdo RAW
 async function fetchRawPage(title) {
   const url = `https://tibia.fandom.com/api.php?action=query&prop=revisions&rvprop=content&format=json&titles=${encodeURIComponent(title)}&origin=*`;
 
   const res = await fetch(url);
   const data = await res.json();
 
-  const pages = data.query.pages;
-  const page = Object.values(pages)[0];
+  const page = Object.values(data.query.pages)[0];
 
   if (!page.revisions) return null;
 
@@ -27,17 +26,17 @@ async function fetchRawPage(title) {
 }
 
 
-// 🔥 Extrai fraqueza do WIKITEXT
+// 🔥 NOVO PARSER UNIVERSAL (RESOLVE O PROBLEMA)
 function extractWeakness(rawText) {
-  const elements = ["physical", "death", "holy", "ice", "fire", "energy", "earth", "drown"];
-  let values = {};
+  const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
+  const values = {};
 
   elements.forEach(el => {
-    const regex = new RegExp(`\\|\\s*${el}\\s*=\\s*(\\d+)`, "i");
+    const regex = new RegExp(`${el}\\D+(\\d+)`, "i");
     const match = rawText.match(regex);
 
     if (match) {
-      values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
+      values[el] = parseInt(match[1]);
     }
   });
 
@@ -47,11 +46,11 @@ function extractWeakness(rawText) {
     values[a] > values[b] ? a : b
   );
 
-  return { weakness, value: values[weakness] };
+  return { weakness, value: values[weakness], all: values };
 }
 
 
-// 🔥 Pipeline completo
+// 🔥 PIPELINE
 async function fetchWeakness(monsterName) {
   try {
     const correctName = await searchMonster(monsterName);
