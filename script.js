@@ -56,6 +56,8 @@ async function fetchWikiText(title) {
   return data.parse.wikitext["*"];
 }
 
+
+// 🔥 Extrai dados
 function extractData(wikiText) {
   const elements = ["physical","earth","fire","death","energy","holy","ice","drown"];
   const values = {};
@@ -73,16 +75,20 @@ function extractData(wikiText) {
   return { hp, elements: values };
 }
 
+
+// 🔥 Pipeline
 async function fetchMonsterData(name) {
   const correct = await searchMonster(name);
   if (!correct) return null;
+
   const wikiText = await fetchWikiText(correct);
   if (!wikiText) return null;
+
   return extractData(wikiText);
 }
 
 
-// 🚀 ANALYZE COMPLETO
+// 🚀 ANALYZE FINAL
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
@@ -93,6 +99,7 @@ async function analyze() {
   resultEl.innerText = "🔄 Analisando...";
 
   const mobs = parseInput(input);
+
   if (!mobs.length) {
     resultEl.innerText = "Nenhum mob encontrado.";
     return;
@@ -114,12 +121,14 @@ async function analyze() {
     });
 
     Object.keys(data.elements).forEach(el => {
-      const score = data.hp * mob.count * (data.elements[el] / 100);
+      const baseDamage = data.hp * 0.05;
+      const score = baseDamage * (data.elements[el] / 100) * mob.count;
 
       combinations.push({
         mob: mob.name,
         element: el,
-        score
+        score,
+        baseDamage: baseDamage * (data.elements[el] / 100) // dano individual
       });
     });
   }
@@ -139,15 +148,14 @@ async function analyze() {
     }
   }
 
-  // 🔥 calcula valor da hunt (A%x + B%y ...)
-  let total = 0;
+  // 🔥 média da hunt
   let totalKills = mobs.reduce((a, b) => a + b.count, 0);
+  let valorMedio = 0;
 
   base.forEach(b => {
     const mob = mobDataList.find(m => m.name === b.mob);
     const percent = mob.count / totalKills;
-    const damage = mob.hp * (b.score / (mob.hp * mob.count));
-    total += percent * damage;
+    valorMedio += percent * b.baseDamage;
   });
 
   // 🔥 calcula charm
@@ -163,16 +171,32 @@ async function analyze() {
 
   let final = [...base];
 
-  // 🔥 decide substituir
-  if (charmType && charmValue && charmDamage > total) {
-    // remove melhor mob
-    const removed = final.shift();
+  // 🔥 decisão inteligente
+  if (charmType && charmValue && charmDamage > valorMedio) {
 
-    // redistribui elementos sem repetir
-    usedMobs = new Set();
-    usedElements = new Set();
-    final = [];
+    // encontrar pior mob (menor impacto na média)
+    let worstIndex = -1;
+    let worstValue = Infinity;
 
+    final.forEach((f, i) => {
+      const mob = mobDataList.find(m => m.name === f.mob);
+      const percent = mob.count / totalKills;
+      const impact = percent * f.baseDamage;
+
+      if (impact < worstValue) {
+        worstValue = impact;
+        worstIndex = i;
+      }
+    });
+
+    const removed = final[worstIndex];
+    final.splice(worstIndex, 1);
+
+    // libera elemento
+    usedElements.delete(removed.element);
+    usedMobs.delete(removed.mob);
+
+    // redistribui
     for (const c of combinations) {
       if (!usedMobs.has(c.mob) && !usedElements.has(c.element)) {
         final.push(c);
@@ -181,10 +205,11 @@ async function analyze() {
       }
     }
 
-    final.unshift({
+    // adiciona charm
+    final.push({
       mob: removed.mob,
       element: charmType.toUpperCase(),
-      score: charmDamage
+      baseDamage: charmDamage
     });
   }
 
@@ -194,6 +219,12 @@ async function analyze() {
   final.forEach(f => {
     output += `🧟 ${f.mob} → ${f.element.toUpperCase()}\n`;
   });
+
+  output += `\n📊 Média da hunt: ${valorMedio.toFixed(2)}`;
+
+  if (charmType) {
+    output += `\n⚡ ${charmType.toUpperCase()}: ${charmDamage.toFixed(2)}`;
+  }
 
   resultEl.innerText = output;
 }
