@@ -1,9 +1,8 @@
 async function fetchWeakness(monsterName) {
-  // 🔧 normaliza nome
   const pageName = monsterName
     .trim()
     .toLowerCase()
-    .replace(/^a\s+/i, "") // remove "a "
+    .replace(/^a\s+/i, "")
     .replace(/ /g, "_")
     .replace(/__+/g, "_");
 
@@ -55,7 +54,7 @@ async function fetchWeakness(monsterName) {
 }
 
 
-// 🔥 PARSE DO INPUT
+// 🔍 PARSE DO INPUT
 function parseInput(text) {
   const lines = text.split("\n");
   const mobs = [];
@@ -74,7 +73,7 @@ function parseInput(text) {
 }
 
 
-// 🔥 FUNÇÃO PRINCIPAL
+// 🚀 FUNÇÃO PRINCIPAL
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
@@ -107,7 +106,6 @@ async function analyze() {
       value: data.value
     });
 
-    // 🔥 soma ponderada
     if (!elementScore[data.weakness]) {
       elementScore[data.weakness] = 0;
     }
@@ -115,14 +113,25 @@ async function analyze() {
     elementScore[data.weakness] += percent;
   }
 
-  // 🛑 proteção contra erro do reduce
-  if (Object.keys(elementScore).length === 0) {
-    resultEl.innerText = "Não foi possível calcular as fraquezas (verifique os nomes dos mobs).";
+  const keys = Object.keys(elementScore);
+
+  // 🛑 proteção total
+  if (keys.length === 0) {
+    resultEl.innerText =
+      "❌ Nenhuma fraqueza encontrada.\n\n" +
+      "Verifique:\n" +
+      "- Nome dos mobs\n" +
+      "- Se existem no Fandom\n\n" +
+      "Abra o console (F12) para ver detalhes.";
+
+    console.log("elementScore vazio:", elementScore);
     return;
   }
 
-  const bestElement = Object.keys(elementScore).reduce((a, b) =>
-    elementScore[a] > elementScore[b] ? a : b
+  // ✅ reduce seguro
+  const bestElement = keys.reduce((a, b) =>
+    elementScore[a] > elementScore[b] ? a : b,
+    keys[0]
   );
 
   // 🖨️ OUTPUT
