@@ -7,23 +7,30 @@ async function analyze() {
     return;
   }
 
-  const url = `https://tibia.fandom.com/wiki/${name.replace(/ /g, "_")}`;
-  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+  const apiUrl = `https://tibia.fandom.com/api.php?action=parse&page=${name.replace(/ /g, "_")}&format=json&origin=*`;
 
   try {
-    const response = await fetch(proxy);
-    const html = await response.text();
+    const response = await fetch(apiUrl);
+    const data = await response.json();
+
+    if (!data.parse) {
+      resultEl.innerText = "Página não encontrada.";
+      return;
+    }
+
+    const html = data.parse.text["*"];
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
     const values = {};
-    const validElements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
+    const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
 
-    const lines = doc.body.innerText.split("\n");
+    // 🔥 pega todo texto da página parseada
+    const lines = doc.body.textContent.split("\n");
 
     lines.forEach(line => {
-      validElements.forEach(el => {
+      elements.forEach(el => {
         if (line.toLowerCase().includes(el.toLowerCase())) {
           const match = line.match(/(\d+)%/);
           if (match) {
