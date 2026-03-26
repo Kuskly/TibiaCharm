@@ -8,19 +8,16 @@ async function analyze() {
   }
 
   const url = `https://tibia.fandom.com/wiki/${name.replace(/ /g, "_")}`;
+  const proxy = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
 
   try {
-    const response = await fetch(url);
+    const response = await fetch(proxy);
     const html = await response.text();
 
-    // Converte HTML em DOM
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    // Procura tabela de atributos
-    const tables = doc.querySelectorAll("table");
-
-    let text = doc.body.innerText;
+    const text = doc.body.innerText;
 
     const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
     let values = {};
@@ -45,7 +42,6 @@ async function analyze() {
     resultEl.innerText =
       `📊 Resultado para ${name}\n\n` +
       `🔥 Maior fraqueza: ${weakness} (${values[weakness]}%)\n\n` +
-      `Todos os elementos:\n` +
       JSON.stringify(values, null, 2);
 
   } catch (err) {
