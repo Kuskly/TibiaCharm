@@ -1,6 +1,6 @@
 console.log("SCRIPT CARREGADO");
 
-// 🔍 UI dinâmica
+// UI
 function handleCharmChange() {
   const type = document.getElementById("charmType").value;
   const input = document.getElementById("charmValue");
@@ -11,72 +11,56 @@ function handleCharmChange() {
   }
 
   input.style.display = "block";
-
-  if (type === "overflux") {
-    input.placeholder = "Digite sua mana";
-  } else {
-    input.placeholder = "Digite sua vida";
-  }
+  input.placeholder = type === "overflux" ? "Digite sua mana" : "Digite sua vida";
 }
 
 
-// 🔍 Parse input
+// Parse
 function parseInput(text) {
-  const lines = text.split("\n");
-  const mobs = [];
-
-  lines.forEach(line => {
-    const match = line.match(/(\d+)x\s+(.+)/i);
-    if (match) {
-      mobs.push({
-        count: parseInt(match[1]),
-        name: match[2].trim()
-      });
-    }
-  });
-
-  return mobs;
+  return text.split("\n")
+    .map(l => l.match(/(\d+)x\s+(.+)/i))
+    .filter(Boolean)
+    .map(m => ({
+      count: parseInt(m[1]),
+      name: m[2].trim()
+    }));
 }
 
 
-// 🔍 API
+// API
 async function searchMonster(name) {
   const url = `https://tibia.fandom.com/api.php?action=query&list=search&srsearch=${encodeURIComponent(name)}&format=json&origin=*`;
   const res = await fetch(url);
   const data = await res.json();
-  if (!data.query.search.length) return null;
-  return data.query.search[0].title;
+  return data.query.search.length ? data.query.search[0].title : null;
 }
 
 async function fetchWikiText(title) {
   const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
   const res = await fetch(url);
   const data = await res.json();
-  if (!data.parse) return null;
-  return data.parse.wikitext["*"];
+  return data.parse ? data.parse.wikitext["*"] : null;
 }
 
 
-// 🔥 Extrai dados
+// Extrair dados
 function extractData(wikiText) {
   const elements = ["physical","earth","fire","death","energy","holy","ice","drown"];
   const values = {};
 
   elements.forEach(el => {
-    const match = wikiText.match(new RegExp(`${el}DmgMod\\s*=\\s*(\\d+)%`, "i"));
-    if (match) values[el] = parseInt(match[1]);
+    const m = wikiText.match(new RegExp(`${el}DmgMod\\s*=\\s*(\\d+)%`, "i"));
+    if (m) values[el] = parseInt(m[1]);
   });
 
-  const hpMatch = wikiText.match(/hp\s*=\s*(\d+)/i);
-  const hp = hpMatch ? parseInt(hpMatch[1]) : null;
+  const hp = parseInt((wikiText.match(/hp\s*=\s*(\d+)/i) || [])[1]);
 
-  if (!hp || Object.keys(values).length === 0) return null;
+  if (!hp || !Object.keys(values).length) return null;
 
   return { hp, elements: values };
 }
 
 
-// 🔥 Pipeline
 async function fetchMonsterData(name) {
   const correct = await searchMonster(name);
   if (!correct) return null;
@@ -88,7 +72,7 @@ async function fetchMonsterData(name) {
 }
 
 
-// 🚀 ANALYZE FINAL
+// 🚀 ANALYZE FINAL CORRETO
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
@@ -99,16 +83,10 @@ async function analyze() {
   resultEl.innerText = "🔄 Analisando...";
 
   const mobs = parseInput(input);
+  if (!mobs.length) return resultEl.innerText = "Nenhum mob.";
 
-  if (!mobs.length) {
-    resultEl.innerText = "Nenhum mob encontrado.";
-    return;
-  }
-
-  let combinations = [];
   let mobDataList = [];
 
-  // 🔥 coleta dados
   for (const mob of mobs) {
     const data = await fetchMonsterData(mob.name);
     if (!data) continue;
@@ -119,108 +97,78 @@ async function analyze() {
       hp: data.hp,
       elements: data.elements
     });
+  }
 
-    Object.keys(data.elements).forEach(el => {
-      const baseDamage = data.hp * 0.05;
-      const score = baseDamage * (data.elements[el] / 100) * mob.count;
+  // 🔥 melhor elemento por mob
+  let base = mobDataList.map(m => {
+    let bestEl = null;
+    let bestDmg = 0;
 
-      combinations.push({
-        mob: mob.name,
-        element: el,
-        score,
-        baseDamage: baseDamage * (data.elements[el] / 100) // dano individual
-      });
+    Object.entries(m.elements).forEach(([el, mod]) => {
+      const dmg = m.hp * 0.05 * (mod / 100);
+      if (dmg > bestDmg) {
+        bestDmg = dmg;
+        bestEl = el;
+      }
     });
-  }
 
-  // 🔥 solução base
-  combinations.sort((a, b) => b.score - a.score);
-
-  let usedMobs = new Set();
-  let usedElements = new Set();
-  let base = [];
-
-  for (const c of combinations) {
-    if (!usedMobs.has(c.mob) && !usedElements.has(c.element)) {
-      base.push(c);
-      usedMobs.add(c.mob);
-      usedElements.add(c.element);
-    }
-  }
+    return {
+      mob: m.name,
+      count: m.count,
+      element: bestEl,
+      damage: bestDmg
+    };
+  });
 
   // 🔥 média da hunt
-  let totalKills = mobs.reduce((a, b) => a + b.count, 0);
+  const totalKills = mobs.reduce((a,b)=>a+b.count,0);
+
   let valorMedio = 0;
 
   base.forEach(b => {
-    const mob = mobDataList.find(m => m.name === b.mob);
-    const percent = mob.count / totalKills;
-    valorMedio += percent * b.baseDamage;
+    const percent = b.count / totalKills;
+    valorMedio += percent * b.damage;
   });
 
-  // 🔥 calcula charm
+  // 🔥 charm
   let charmDamage = 0;
+  if (charmType === "overflux") charmDamage = charmValue / 40;
+  if (charmType === "overpower") charmDamage = charmValue / 20;
 
-  if (charmType === "overflux") {
-    charmDamage = charmValue / 40;
-  }
-
-  if (charmType === "overpower") {
-    charmDamage = charmValue / 20;
-  }
-
-  let final = [...base];
-
-  // 🔥 decisão inteligente
+  // 🔥 decisão correta
   if (charmType && charmValue && charmDamage > valorMedio) {
 
-    // encontrar pior mob (menor impacto na média)
-    let worstIndex = -1;
-    let worstValue = Infinity;
+    // pega o MELHOR mob da hunt
+    let bestIndex = -1;
+    let bestImpact = -1;
 
-    final.forEach((f, i) => {
-      const mob = mobDataList.find(m => m.name === f.mob);
-      const percent = mob.count / totalKills;
-      const impact = percent * f.baseDamage;
+    base.forEach((b,i) => {
+      const percent = b.count / totalKills;
+      const impact = percent * b.damage;
 
-      if (impact < worstValue) {
-        worstValue = impact;
-        worstIndex = i;
+      if (impact > bestImpact) {
+        bestImpact = impact;
+        bestIndex = i;
       }
     });
 
-    const removed = final[worstIndex];
-    final.splice(worstIndex, 1);
-
-    // libera elemento
-    usedElements.delete(removed.element);
-    usedMobs.delete(removed.mob);
-
-    // redistribui
-    for (const c of combinations) {
-      if (!usedMobs.has(c.mob) && !usedElements.has(c.element)) {
-        final.push(c);
-        usedMobs.add(c.mob);
-        usedElements.add(c.element);
-      }
-    }
-
-    // adiciona charm
-    final.push({
-      mob: removed.mob,
+    // substitui
+    base[bestIndex] = {
+      mob: base[bestIndex].mob,
+      count: base[bestIndex].count,
       element: charmType.toUpperCase(),
-      baseDamage: charmDamage
-    });
+      damage: charmDamage
+    };
   }
 
-  // 🔥 saída
+  // saída
   let output = "🎯 Distribuição ótima\n\n";
 
-  final.forEach(f => {
-    output += `🧟 ${f.mob} → ${f.element.toUpperCase()}\n`;
+  base.forEach(b => {
+    output += `🧟 ${b.mob} → ${b.element.toUpperCase()}\n`;
   });
 
-  output += `\n📊 Média da hunt: ${valorMedio.toFixed(2)}`;
+  output += `\n📊 Média: ${valorMedio.toFixed(2)}`;
 
   if (charmType) {
     output += `\n⚡ ${charmType.toUpperCase()}: ${charmDamage.toFixed(2)}`;
