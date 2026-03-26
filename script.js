@@ -1,42 +1,57 @@
 async function fetchWeakness(monsterName) {
+  // 🔧 normaliza nome
   const pageName = monsterName
     .trim()
+    .toLowerCase()
+    .replace(/^a\s+/i, "") // remove "a "
     .replace(/ /g, "_")
     .replace(/__+/g, "_");
 
   const apiUrl = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(pageName)}&format=json&origin=*`;
 
-  const response = await fetch(apiUrl);
-  const data = await response.json();
+  try {
+    const response = await fetch(apiUrl);
+    const data = await response.json();
 
-  if (!data.parse) return null;
+    if (!data.parse) {
+      console.log("❌ Página não encontrada:", monsterName);
+      return null;
+    }
 
-  const html = data.parse.text["*"];
-  const doc = new DOMParser().parseFromString(html, "text/html");
+    const html = data.parse.text["*"];
+    const doc = new DOMParser().parseFromString(html, "text/html");
 
-  const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
-  const values = {};
+    const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
+    const values = {};
 
-  const lines = doc.body.textContent.split("\n");
+    const lines = doc.body.textContent.split("\n");
 
-  lines.forEach(line => {
-    elements.forEach(el => {
-      if (line.toLowerCase().includes(el.toLowerCase())) {
-        const match = line.match(/(\d+)%/);
-        if (match) {
-          values[el] = parseInt(match[1]);
+    lines.forEach(line => {
+      elements.forEach(el => {
+        if (line.toLowerCase().includes(el.toLowerCase())) {
+          const match = line.match(/(\d+)%/);
+          if (match) {
+            values[el] = parseInt(match[1]);
+          }
         }
-      }
+      });
     });
-  });
 
-  if (Object.keys(values).length === 0) return null;
+    if (Object.keys(values).length === 0) {
+      console.log("⚠️ Sem fraqueza encontrada:", monsterName);
+      return null;
+    }
 
-  const weakness = Object.keys(values).reduce((a, b) =>
-    values[a] > values[b] ? a : b
-  );
+    const weakness = Object.keys(values).reduce((a, b) =>
+      values[a] > values[b] ? a : b
+    );
 
-  return { weakness, value: values[weakness] };
+    return { weakness, value: values[weakness] };
+
+  } catch (err) {
+    console.log("🔥 Erro ao buscar:", monsterName, err);
+    return null;
+  }
 }
 
 
@@ -50,7 +65,7 @@ function parseInput(text) {
     if (match) {
       mobs.push({
         count: parseInt(match[1]),
-        name: match[2].toLowerCase()
+        name: match[2].toLowerCase().trim()
       });
     }
   });
@@ -81,6 +96,8 @@ async function analyze() {
 
     const data = await fetchWeakness(mob.name);
 
+    console.log("Mob:", mob.name, "Data:", data);
+
     if (!data) continue;
 
     results.push({
@@ -90,7 +107,7 @@ async function analyze() {
       value: data.value
     });
 
-    // soma ponderada
+    // 🔥 soma ponderada
     if (!elementScore[data.weakness]) {
       elementScore[data.weakness] = 0;
     }
@@ -98,7 +115,12 @@ async function analyze() {
     elementScore[data.weakness] += percent;
   }
 
-  // melhor elemento da hunt
+  // 🛑 proteção contra erro do reduce
+  if (Object.keys(elementScore).length === 0) {
+    resultEl.innerText = "Não foi possível calcular as fraquezas (verifique os nomes dos mobs).";
+    return;
+  }
+
   const bestElement = Object.keys(elementScore).reduce((a, b) =>
     elementScore[a] > elementScore[b] ? a : b
   );
