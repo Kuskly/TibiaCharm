@@ -11,7 +11,7 @@ async function searchMonster(monsterName) {
 }
 
 
-// 🔥 Busca WIKITEXT (FORMA CORRETA)
+// 🔥 Busca WIKITEXT
 async function fetchWikiText(title) {
   const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
 
@@ -24,14 +24,23 @@ async function fetchWikiText(title) {
 }
 
 
-// 🔥 PARSER (FUNCIONA COM ESSE FORMATO)
+// 🔥 PARSER CORRETO (DmgMod)
 function extractWeakness(wikiText) {
-  const elements = ["physical", "death", "holy", "ice", "fire", "energy", "earth", "drown"];
+  const elements = [
+    "physical",
+    "earth",
+    "fire",
+    "death",
+    "energy",
+    "holy",
+    "ice",
+    "drown"
+  ];
+
   const values = {};
 
   elements.forEach(el => {
-    // pega padrões tipo fire=125 ou fire = 125
-    const regex = new RegExp(`${el}\\s*=\\s*(\\d+)`, "i");
+    const regex = new RegExp(`${el}DmgMod\\s*=\\s*(\\d+)%`, "i");
     const match = wikiText.match(regex);
 
     if (match) {
@@ -39,28 +48,21 @@ function extractWeakness(wikiText) {
     }
   });
 
-  // 🔥 fallback: tenta pegar formato alternativo (ex: Fire 125%)
   if (Object.keys(values).length === 0) {
-    elements.forEach(el => {
-      const regex = new RegExp(`${el}\\D+(\\d+)`, "i");
-      const match = wikiText.match(regex);
-
-      if (match) {
-        values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
-      }
-    });
-  }
-
-  if (Object.keys(values).length === 0) {
-    console.log("⚠️ Nenhum elemento encontrado");
+    console.log("⚠️ Nenhum elemento encontrado no wikitext");
     return null;
   }
 
+  // 🔥 MAIOR VALOR = MAIOR FRAQUEZA
   const weakness = Object.keys(values).reduce((a, b) =>
     values[a] > values[b] ? a : b
   );
 
-  return { weakness, value: values[weakness], all: values };
+  return {
+    weakness,
+    value: values[weakness],
+    all: values
+  };
 }
 
 
