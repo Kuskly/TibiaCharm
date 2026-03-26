@@ -7,11 +7,22 @@ async function analyze() {
     return;
   }
 
-  const apiUrl = `https://tibia.fandom.com/api.php?action=parse&page=${name.replace(/ /g, "_")}&format=json&origin=*`;
+  // 🔥 Corrige nome da página
+  const pageName = name
+    .trim()
+    .replace(/ /g, "_")
+    .replace(/__+/g, "_");
+
+  // 🔥 API com CORS liberado
+  const apiUrl = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(pageName)}&format=json&origin=*`;
 
   try {
     const response = await fetch(apiUrl);
     const data = await response.json();
+
+    // 🔍 Debug (pode remover depois)
+    console.log("API URL:", apiUrl);
+    console.log("API Response:", data);
 
     if (!data.parse) {
       resultEl.innerText = "Página não encontrada.";
@@ -26,7 +37,7 @@ async function analyze() {
     const values = {};
     const elements = ["Physical", "Death", "Holy", "Ice", "Fire", "Energy", "Earth", "Drown"];
 
-    // 🔥 pega todo texto da página parseada
+    // 🔥 pega todo texto da página
     const lines = doc.body.textContent.split("\n");
 
     lines.forEach(line => {
