@@ -1,4 +1,4 @@
-// 🔍 Busca nome correto
+// 🔍 Busca nome correto do mob
 async function searchMonster(monsterName) {
   const url = `https://tibia.fandom.com/api.php?action=query&list=search&srsearch=${encodeURIComponent(monsterName)}&format=json&origin=*`;
 
@@ -11,7 +11,7 @@ async function searchMonster(monsterName) {
 }
 
 
-// 🔥 Busca WIKITEXT DIRETO (SEM CORS, SEM PROXY)
+// 🔥 Busca WIKITEXT
 async function fetchWikiText(title) {
   const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
 
@@ -27,17 +27,11 @@ async function fetchWikiText(title) {
 }
 
 
-// 🔥 PARSER CORRETO (DmgMod)
-function extractWeakness(wikiText) {
+// 🔥 Extrai HP + TODOS elementos
+function extractData(wikiText) {
   const elements = [
-    "physical",
-    "earth",
-    "fire",
-    "death",
-    "energy",
-    "holy",
-    "ice",
-    "drown"
+    "physical", "earth", "fire", "death",
+    "energy", "holy", "ice", "drown"
   ];
 
   const values = {};
@@ -47,29 +41,25 @@ function extractWeakness(wikiText) {
     const match = wikiText.match(regex);
 
     if (match) {
-      values[el.charAt(0).toUpperCase() + el.slice(1)] = parseInt(match[1]);
+      values[el] = parseInt(match[1]);
     }
   });
 
-  if (Object.keys(values).length === 0) {
-    console.log("⚠️ Nenhum elemento encontrado");
+  // 🔥 pega HP
+  const hpMatch = wikiText.match(/hp\s*=\s*(\d+)/i);
+  const hp = hpMatch ? parseInt(hpMatch[1]) : null;
+
+  if (!hp || Object.keys(values).length === 0) {
+    console.log("⚠️ Dados incompletos");
     return null;
   }
 
-  const weakness = Object.keys(values).reduce((a, b) =>
-    values[a] > values[b] ? a : b
-  );
-
-  return {
-    weakness,
-    value: values[weakness],
-    all: values
-  };
+  return { hp, elements: values };
 }
 
 
-// 🔥 PIPELINE
-async function fetchWeakness(monsterName) {
+// 🔥 Pipeline completo
+async function fetchMonsterData(monsterName) {
   try {
     const correctName = await searchMonster(monsterName);
 
@@ -84,9 +74,9 @@ async function fetchWeakness(monsterName) {
 
     if (!wikiText) return null;
 
-    const result = extractWeakness(wikiText);
+    const result = extractData(wikiText);
 
-    console.log("📊 Fraqueza:", result);
+    console.log("📊 Dados:", result);
 
     return result;
 
@@ -97,7 +87,7 @@ async function fetchWeakness(monsterName) {
 }
 
 
-// 🔍 Parse input
+// 🔍 Parse do input
 function parseInput(text) {
   const lines = text.split("\n");
   const mobs = [];
@@ -116,7 +106,7 @@ function parseInput(text) {
 }
 
 
-// 🚀 ANALYZE
+// 🚀 FUNÇÃO PRINCIPAL (ALGORITMO TIBIAMAPS)
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
@@ -128,51 +118,46 @@ async function analyze() {
     return;
   }
 
-  const total = mobs.reduce((sum, m) => sum + m.count, 0);
-
-  let results = [];
   let elementScore = {};
 
   for (const mob of mobs) {
-    const percent = (mob.count / total) * 100;
-
-    const data = await fetchWeakness(mob.name);
+    const data = await fetchMonsterData(mob.name);
 
     if (!data) continue;
 
-    results.push({
-      name: mob.name,
-      percent: percent.toFixed(2),
-      weakness: data.weakness,
-      value: data.value
+    const { hp, elements } = data;
+
+    Object.keys(elements).forEach(el => {
+      const multiplier = elements[el] / 100;
+
+      if (!elementScore[el]) {
+        elementScore[el] = 0;
+      }
+
+      // 🔥 Fórmula do TibiaMaps
+      elementScore[el] += hp * mob.count * multiplier;
     });
-
-    if (!elementScore[data.weakness]) {
-      elementScore[data.weakness] = 0;
-    }
-
-    elementScore[data.weakness] += percent;
   }
 
   const keys = Object.keys(elementScore);
 
   if (!keys.length) {
-    resultEl.innerText = "❌ Nenhuma fraqueza encontrada.";
+    resultEl.innerText = "❌ Nenhum dado encontrado.";
     return;
   }
 
-  const bestElement = keys.reduce((a, b) =>
-    elementScore[a] > elementScore[b] ? a : b,
-    keys[0]
-  );
+  // 🔥 ordena ranking
+  const sorted = keys.sort((a, b) => elementScore[b] - elementScore[a]);
 
-  let output = "📊 Resultado da Hunt\n\n";
+  const bestElement = sorted[0];
 
-  results.forEach(r => {
-    output += `🧟 ${r.name} (${r.percent}%) → ${r.weakness} (${r.value}%)\n`;
+  let output = "📊 Eficiência por elemento\n\n";
+
+  sorted.forEach(el => {
+    output += `${el.toUpperCase()}: ${Math.round(elementScore[el])}\n`;
   });
 
-  output += `\n🔥 Melhor elemento geral: ${bestElement}\n`;
+  output += `\n🔥 Melhor elemento: ${bestElement.toUpperCase()}`;
 
   resultEl.innerText = output;
 }
