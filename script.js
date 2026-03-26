@@ -11,14 +11,17 @@ async function searchMonster(monsterName) {
 }
 
 
-// 🔥 Busca WIKITEXT
+// 🔥 Busca WIKITEXT DIRETO (SEM CORS, SEM PROXY)
 async function fetchWikiText(title) {
   const url = `https://tibia.fandom.com/api.php?action=parse&page=${encodeURIComponent(title)}&format=json&prop=wikitext&origin=*`;
 
   const res = await fetch(url);
   const data = await res.json();
 
-  if (!data.parse) return null;
+  if (!data.parse) {
+    console.log("❌ Página não encontrada:", title);
+    return null;
+  }
 
   return data.parse.wikitext["*"];
 }
@@ -49,11 +52,10 @@ function extractWeakness(wikiText) {
   });
 
   if (Object.keys(values).length === 0) {
-    console.log("⚠️ Nenhum elemento encontrado no wikitext");
+    console.log("⚠️ Nenhum elemento encontrado");
     return null;
   }
 
-  // 🔥 MAIOR VALOR = MAIOR FRAQUEZA
   const weakness = Object.keys(values).reduce((a, b) =>
     values[a] > values[b] ? a : b
   );
@@ -80,10 +82,7 @@ async function fetchWeakness(monsterName) {
 
     const wikiText = await fetchWikiText(correctName);
 
-    if (!wikiText) {
-      console.log("❌ Sem wikitext:", correctName);
-      return null;
-    }
+    if (!wikiText) return null;
 
     const result = extractWeakness(wikiText);
 
@@ -158,9 +157,7 @@ async function analyze() {
   const keys = Object.keys(elementScore);
 
   if (!keys.length) {
-    resultEl.innerText =
-      "❌ Nenhuma fraqueza encontrada.\n\n" +
-      "Abra o console (F12) para debug.";
+    resultEl.innerText = "❌ Nenhuma fraqueza encontrada.";
     return;
   }
 
