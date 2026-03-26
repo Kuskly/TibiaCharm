@@ -1,8 +1,9 @@
+// 🔥 Busca fraqueza no Fandom (CORRIGIDO)
 async function fetchWeakness(monsterName) {
   const pageName = monsterName
     .trim()
-    .toLowerCase()
     .replace(/^a\s+/i, "")
+    .replace(/\b\w/g, c => c.toUpperCase()) // 🔥 Capitaliza
     .replace(/ /g, "_")
     .replace(/__+/g, "_");
 
@@ -12,8 +13,10 @@ async function fetchWeakness(monsterName) {
     const response = await fetch(apiUrl);
     const data = await response.json();
 
+    console.log("🔎 Buscando:", pageName);
+
     if (!data.parse) {
-      console.log("❌ Página não encontrada:", monsterName);
+      console.log("❌ Página não encontrada:", pageName);
       return null;
     }
 
@@ -37,7 +40,7 @@ async function fetchWeakness(monsterName) {
     });
 
     if (Object.keys(values).length === 0) {
-      console.log("⚠️ Sem fraqueza encontrada:", monsterName);
+      console.log("⚠️ Sem fraqueza encontrada:", pageName);
       return null;
     }
 
@@ -48,13 +51,13 @@ async function fetchWeakness(monsterName) {
     return { weakness, value: values[weakness] };
 
   } catch (err) {
-    console.log("🔥 Erro ao buscar:", monsterName, err);
+    console.log("🔥 Erro ao buscar:", pageName, err);
     return null;
   }
 }
 
 
-// 🔍 PARSE DO INPUT
+// 🔍 Parse do input da hunt
 function parseInput(text) {
   const lines = text.split("\n");
   const mobs = [];
@@ -64,7 +67,7 @@ function parseInput(text) {
     if (match) {
       mobs.push({
         count: parseInt(match[1]),
-        name: match[2].toLowerCase().trim()
+        name: match[2].trim() // 🔥 NÃO usa lowercase
       });
     }
   });
@@ -73,7 +76,7 @@ function parseInput(text) {
 }
 
 
-// 🚀 FUNÇÃO PRINCIPAL
+// 🚀 Função principal
 async function analyze() {
   const input = document.getElementById("input").value;
   const resultEl = document.getElementById("result");
